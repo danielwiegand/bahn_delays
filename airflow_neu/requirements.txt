@@ -1,0 +1,3 @@
+xmltodict
+kafka-python
+pymongo

@@ -1,0 +1,96 @@
+version: '3' # Template-Version für docker-compose.yml
+services:
+
+  zookeeper-server:
+    container_name: zookeeper-server
+    image: bitnami/zookeeper:latest
+    environment: 
+      - ALLOW_ANONYMOUS_LOGIN=yes
+    networks:
+      - app-tier
+
+  kafka-server:
+    container_name: kafka-server
+    image: bitnami/kafka:latest
+    environment: 
+      - ALLOW_PLAINTEXT_LISTENER=yes
+      - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper-server:2181
+    networks:
+      - app-tier
+    depends_on:
+      - zookeeper-server
+
+  mongo:
+    container_name: mongo
+    image: mongo
+    ports:
+      - 27000:27017
+    networks:
+      - app-tier
+
+  # timetable-kafka:
+  #   container_name: timetable-kafka
+  #   build: timetable-kafka/
+  #   volumes:
+  #     - ./timetable-kafka/:/app
+  #   environment: 
+  #     - TZ=Europe/Berlin
+  #   networks:
+  #     - app-tier
+  #   depends_on:
+  #     - kafka-server
+
+  # changes-kafka:
+  #   container_name: changes-kafka
+  #   build: changes-kafka/
+  #   volumes:
+  #     - ./changes-kafka/:/app
+  #   networks:
+  #     - app-tier
+  #   environment: 
+  #     - TZ=Europe/Berlin
+  #   depends_on:
+  #     - kafka-server
+
+  # timetable-mongo:
+  #   container_name: timetable-mongo
+  #   build: timetable-mongo/
+  #   volumes:
+  #     - ./timetable-mongo/:/app
+  #   networks:
+  #       - app-tier
+  #   depends_on:
+  #     - kafka-server
+  #     - mongo
+
+  # changes-mongo:
+  #   container_name: changes-mongo
+  #   build: changes-mongo/
+  #   volumes:
+  #     - ./changes-mongo/:/app
+  #   networks:
+  #       - app-tier
+  #   depends_on:
+  #     - kafka-server
+  #     - mongo
+
+  # airflow:
+  #   container_name: airflow
+  #   build: airflow/
+  #   ports:
+  #     - "8081:8080"
+  #   volumes:
+  #     - ./airflow/dags/:/usr/local/airflow/dags/
+  #   environment: 
+  #     - AIRFLOW__CORE__DEFAULT_TIMEZONE=system
+  #   networks:
+  #     - app-tier
+  #   command: ["webserver", "scheduler"]
+  #   depends_on: 
+  #     - kafka-server
+  #     - mongo
+
+networks:
+  app-tier:
+    driver: bridge
+    name: app-tier # sonst hängt docker hier automatisch den Ordnernamen vorne dran

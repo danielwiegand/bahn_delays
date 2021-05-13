@@ -1,0 +1,2 @@
+xmltodict
+kafka-python
