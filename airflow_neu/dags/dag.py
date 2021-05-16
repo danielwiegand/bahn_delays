@@ -22,29 +22,41 @@ default_args = {
 dag_timetable = DAG('timetable', 
                     description = 'Fetch timetable data hourly', catchup = False, schedule_interval = "@hourly", default_args = default_args)
 
-t1 = PythonOperator(task_id = "send_timetable_to_kafka", 
-                    python_callable = send_to_kafka,
-                    op_kwargs = {"topic": "timetable"},
-                    dag = dag_timetable)
-t2 = PythonOperator(task_id = 'send_timetable_to_mongo', 
-                    python_callable = send_to_mongo,
-                    op_kwargs = {"topic": "timetable"},
-                    dag = dag_timetable)
+# t1 = PythonOperator(task_id = "send_timetable_to_kafka", 
+#                     python_callable = send_to_kafka,
+#                     op_kwargs = {"topic": "timetable"},
+#                     dag = dag_timetable)
+# t2 = PythonOperator(task_id = 'send_timetable_to_mongo', 
+#                     python_callable = send_to_mongo,
+#                     op_kwargs = {"topic": "timetable"},
+#                     dag = dag_timetable)
 
-t1 >> t2 # dependencies
+# t1 >> t2 # dependencies
 
 
-# changes DAG
-dag_changes = DAG('changes', 
-                  description = 'Fetch the recent timetable changes every 2 minutes', catchup = False, schedule_interval = timedelta(seconds = 119), default_args = default_args)
+# # changes DAG
+# dag_changes = DAG('changes', 
+#                   description = 'Fetch the recent timetable changes every 2 minutes', catchup = False, schedule_interval = timedelta(seconds = 119), default_args = default_args)
 
-c1 = PythonOperator(task_id = "send_changes_to_kafka", 
-                    python_callable = send_to_kafka,
-                    op_kwargs = {"topic": "changes"},
-                    dag = dag_changes)
-c2 = PythonOperator(task_id = 'send_changes_to_mongo', 
-                    python_callable = send_to_mongo,
-                    op_kwargs = {"topic": "changes"},
-                    dag = dag_changes)
+# c1 = PythonOperator(task_id = "send_changes_to_kafka", 
+#                     python_callable = send_to_kafka,
+#                     op_kwargs = {"topic": "changes"},
+#                     dag = dag_changes)
+# c2 = PythonOperator(task_id = 'send_changes_to_mongo', 
+#                     python_callable = send_to_mongo,
+#                     op_kwargs = {"topic": "changes"},
+#                     dag = dag_changes)
 
-c1 >> c2 # dependencies
+# c1 >> c2 # dependencies
+
+
+# ! ##### SPARK ##########
+
+from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
+
+s1 = SparkSubmitOperator(
+    task_id = "spark-job",
+    application = "/opt/airflow/dags/spark_app.py",
+    conn_id = "spark_default", # "spark_default",
+    dag = dag_timetable
+)

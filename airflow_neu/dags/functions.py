@@ -1,21 +1,20 @@
 import json
+import logging
 import time
 from datetime import date, datetime
 
 import pymongo
+import pytz
 import requests
 import xmltodict
 from kafka import KafkaConsumer, KafkaProducer
-import logging
 
 HEADERS = {"Authorization": "Bearer c2717c0f768243e30011b8b3104f6d3d",
            "Accept": "application/xml"}
 
-today = date.today()
-today_date = int(today.strftime("%y%m%d"))
-
-now = datetime.now()
+now = datetime.now(tz = pytz.timezone("Europe/Berlin"))
 hour = int(now.strftime("%H")) + 1
+today_date = int(now.strftime("%y%m%d"))
 
 eva = 8004158
 
@@ -41,19 +40,22 @@ def request_and_send(url, topic):
                          value_serializer = lambda m: json.dumps(m).encode('utf-8')
                          )
 
-    r = requests.get(url, headers = HEADERS)
-    if r.status_code == 200:
-        tt = convert_to_json(r.text)
-        for train_stop in tt["timetable"]["s"]:
-            producer.send(topic = topic,
-                          value = train_stop)
-            time.sleep(1)
-    else:
-        print(f"ERROR: Could not fetch data from Deutsche Bahn: {r.content}")
+    try:
+        r = requests.get(url, headers = HEADERS)
+        if r.status_code == 200:
+            tt = convert_to_json(r.text)
+            for train_stop in tt["timetable"]["s"]:
+                producer.send(topic = topic,
+                            value = train_stop)
+                time.sleep(1)
+        else:
+            logging.critical(f"ERROR: Could not fetch data from Deutsche Bahn: {r.content}")
+    except requests.exceptions.RequestException as e: 
+        logging.critical(f"ERROR when connecting to the Bahn API: {e}")
 
 
 def send_to_kafka(topic):
-    url = prepare_url(topic, eva, today_date, hour)
+    url = prepare_url(topic, eva, today_date, hour)    
     print(f"URL to fetch: {url}")
     request_and_send(url, topic)
     
@@ -77,11 +79,12 @@ def send_to_mongo(topic):
                             value_deserializer = lambda m: json.loads(m.decode('utf-8')),
                             consumer_timeout_ms = 1000, 
                             group_id = 'my-group-1')
-    consumer.close() # close consumer if no message for 1 second (consumer_timeout_ms)
     
     db = connect_to_mongo()
 
     for entry in consumer:
+        
+        logging.critical(entry)
         
         try:
             db[topic].update(
@@ -89,6 +92,9 @@ def send_to_mongo(topic):
                 entry.value,
                 upsert = True
                 )
+            
         except TypeError:
             print("Type error occured while entry was written to mongoDB!")
             pass
+    
+    consumer.close() # close consumer if no message for 1 second (consumer_timeout_ms)
