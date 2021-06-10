@@ -1,5 +1,105 @@
 version: '3' # Template-Version für docker-compose.yml
+
+
+x-airflow-common: # wohl die Eigenschaften, die von den Containern geteilt werden, die ein "<<: *airflow-common" haben
+  &airflow-common
+  build: ./airflow/
+  image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.0.2}
+  environment:
+    &airflow-common-env
+    AIRFLOW__CORE__EXECUTOR: CeleryExecutor
+    AIRFLOW__CORE__SQL_ALCHEMY_CONN: postgresql+psycopg2://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__RESULT_BACKEND: db+postgresql://airflow:airflow@postgres/airflow
+    AIRFLOW__CELERY__BROKER_URL: redis://:@redis:6379/0
+    AIRFLOW__CORE__FERNET_KEY: ''
+    AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false' # DAGS nicht pausieren am Anfang
+    AIRFLOW__CORE__LOAD_EXAMPLES: 'false' # keine Beispiele laden
+    AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: 'Europe/Berlin' # Zeitzone
+  volumes:
+    - ./airflow/dags:/opt/airflow/dags
+    - ./airflow/logs:/opt/airflow/logs
+    - ./airflow/plugins:/opt/airflow/plugins
+  user: "${AIRFLOW_UID:-50000}:${AIRFLOW_GID:-50000}"
+  networks:
+    - app-tier
+  depends_on:
+    redis:
+      condition: service_healthy
+    postgres:
+      condition: service_healthy
+
+
+
 services:
+
+  postgres:
+    container_name: airflowPostgres
+    image: postgres:13
+    environment:
+      POSTGRES_USER: airflow
+      POSTGRES_PASSWORD: airflow
+      POSTGRES_DB: airflow
+    volumes:
+      - postgres-db-volume:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "airflow"]
+      interval: 5s
+      retries: 5
+    restart: always
+    networks:
+      - app-tier
+
+  redis:
+    container_name: airflowRedis
+    image: redis:latest
+    ports:
+      - 6380:6379
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 30s
+      retries: 50
+    restart: always
+    networks:
+      - app-tier
+
+  airflow-webserver:
+    <<: *airflow-common
+    container_name: airflowWebserver
+    command: webserver
+    ports:
+      - 8081:8080
+    healthcheck:
+      test: ["CMD", "curl", "--fail", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    restart: always
+
+  airflow-scheduler:
+    <<: *airflow-common
+    container_name: airflowScheduler
+    command: scheduler
+    restart: always
+
+  airflow-worker:
+    <<: *airflow-common
+    container_name: airflowWorker
+    command: celery worker
+    restart: always
+
+  airflow-init:
+    <<: *airflow-common
+    container_name: airflowInit
+    command: version
+    environment:
+      <<: *airflow-common-env
+      _AIRFLOW_DB_UPGRADE: 'true'
+      _AIRFLOW_WWW_USER_CREATE: 'true'
+      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
+      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+
 
   zookeeper-server:
     container_name: zookeeper-server
@@ -28,67 +128,46 @@ services:
     networks:
       - app-tier
 
-  # timetable-kafka:
-  #   container_name: timetable-kafka
-  #   build: timetable-kafka/
-  #   volumes:
-  #     - ./timetable-kafka/:/app
-  #   environment: 
-  #     - TZ=Europe/Berlin
-  #   networks:
-  #     - app-tier
-  #   depends_on:
-  #     - kafka-server
 
-  # changes-kafka:
-  #   container_name: changes-kafka
-  #   build: changes-kafka/
-  #   volumes:
-  #     - ./changes-kafka/:/app
-  #   networks:
-  #     - app-tier
-  #   environment: 
-  #     - TZ=Europe/Berlin
-  #   depends_on:
-  #     - kafka-server
+  spark:
+    image: docker.io/bitnami/spark:3
+    user: root
+    environment:
+      - SPARK_MODE=master
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    ports:
+      - '8080:8080'
+    volumes: 
+      - ./:/app
+  spark-worker-1:
+    image: docker.io/bitnami/spark:3
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+  spark-worker-2:
+    image: docker.io/bitnami/spark:3
+    environment:
+      - SPARK_MODE=worker
+      - SPARK_MASTER_URL=spark://spark:7077
+      - SPARK_WORKER_MEMORY=1G
+      - SPARK_WORKER_CORES=1
+      - SPARK_RPC_AUTHENTICATION_ENABLED=no
+      - SPARK_RPC_ENCRYPTION_ENABLED=no
+      - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
+      - SPARK_SSL_ENABLED=no
+    
 
-  # timetable-mongo:
-  #   container_name: timetable-mongo
-  #   build: timetable-mongo/
-  #   volumes:
-  #     - ./timetable-mongo/:/app
-  #   networks:
-  #       - app-tier
-  #   depends_on:
-  #     - kafka-server
-  #     - mongo
-
-  # changes-mongo:
-  #   container_name: changes-mongo
-  #   build: changes-mongo/
-  #   volumes:
-  #     - ./changes-mongo/:/app
-  #   networks:
-  #       - app-tier
-  #   depends_on:
-  #     - kafka-server
-  #     - mongo
-
-  # airflow:
-  #   container_name: airflow
-  #   build: airflow/
-  #   ports:
-  #     - "8081:8080"
-  #   volumes:
-  #     - ./airflow/dags/:/usr/local/airflow/dags/
-  #   environment: 
-  #     - AIRFLOW__CORE__DEFAULT_TIMEZONE=system
-  #   networks:
-  #     - app-tier
-  #   command: ["webserver", "scheduler"]
-  #   depends_on: 
-  #     - kafka-server
-  #     - mongo
+volumes:
+  postgres-db-volume:
 
 networks:
   app-tier:

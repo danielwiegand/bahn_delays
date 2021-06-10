@@ -1,4 +1,0 @@
-xmltodict
-kafka-python
-pymongo
-apache-airflow-providers-apache-spark
