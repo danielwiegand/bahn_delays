@@ -115,6 +115,8 @@ services:
     environment: 
       - ALLOW_PLAINTEXT_LISTENER=yes
       - KAFKA_CFG_ZOOKEEPER_CONNECT=zookeeper-server:2181
+    ports:
+      - 9092:9092
     networks:
       - app-tier
     depends_on:
@@ -128,6 +130,20 @@ services:
     networks:
       - app-tier
 
+  postgres_streams:
+    container_name: postgres_streams
+    image: postgres
+    ports: 
+      - 5555:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_DB=bahn
+      - POSTGRES_PASSWORD=postgres
+      # - POSTGRES_USER=${POSTGRES_USER}
+      # - POSTGRES_DB=${POSTGRES_DB}
+      # - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    networks:
+      - app-tier
 
   spark:
     image: docker.io/bitnami/spark:3
@@ -142,6 +158,8 @@ services:
       - '8080:8080'
     volumes: 
       - ./:/app
+    networks:
+      - app-tier
   spark-worker-1:
     image: docker.io/bitnami/spark:3
     environment:
@@ -153,6 +171,8 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+    networks:
+      - app-tier
   spark-worker-2:
     image: docker.io/bitnami/spark:3
     environment:
@@ -164,8 +184,9 @@ services:
       - SPARK_RPC_ENCRYPTION_ENABLED=no
       - SPARK_LOCAL_STORAGE_ENCRYPTION_ENABLED=no
       - SPARK_SSL_ENABLED=no
+    networks:
+      - app-tier
     
-
 volumes:
   postgres-db-volume:
 

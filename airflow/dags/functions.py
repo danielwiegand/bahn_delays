@@ -1,7 +1,7 @@
 import json
 import logging
 import time
-from datetime import date, datetime
+from datetime import timedelta, datetime
 
 import pymongo
 import pytz
@@ -13,8 +13,10 @@ HEADERS = {"Authorization": "Bearer c2717c0f768243e30011b8b3104f6d3d",
            "Accept": "application/xml"}
 
 now = datetime.now(tz = pytz.timezone("Europe/Berlin"))
-hour = int(now.strftime("%H")) + 1
-today_date = int(now.strftime("%y%m%d"))
+in_one_hour = now + timedelta(hours = 1)
+
+request_hour = in_one_hour.strftime("%H")
+request_date = in_one_hour.strftime("%y%m%d")
 
 eva = 8004158
 
@@ -55,7 +57,7 @@ def request_and_send(url, topic):
 
 
 def send_to_kafka(topic):
-    url = prepare_url(topic, eva, today_date, hour)    
+    url = prepare_url(topic, eva, request_date, request_hour)    
     print(f"URL to fetch: {url}")
     request_and_send(url, topic)
     
@@ -84,15 +86,18 @@ def send_to_mongo(topic):
 
     for entry in consumer:
         
-        logging.critical(entry)
+        value = entry.value
+        
+        if topic == "timetable":
+            value["timestamp"] = int(in_one_hour.strftime("%y%m%d%H"))
         
         try:
             db[topic].update(
-                {"@id": entry.value["@id"]},
-                entry.value,
+                {"@id": value["@id"]},
+                value,
                 upsert = True
                 )
-            
+        
         except TypeError:
             print("Type error occured while entry was written to mongoDB!")
             pass
