@@ -26,12 +26,6 @@ t1 = PythonOperator(task_id = "send_timetable_to_kafka",
                     python_callable = send_to_kafka,
                     op_kwargs = {"topic": "timetable"},
                     dag = dag_timetable)
-t2 = PythonOperator(task_id = 'send_timetable_to_mongo', 
-                    python_callable = send_to_mongo,
-                    op_kwargs = {"topic": "timetable"},
-                    dag = dag_timetable)
-
-t1 >> t2 # dependencies
 
 
 # * changes DAG
@@ -42,12 +36,7 @@ c1 = PythonOperator(task_id = "send_changes_to_kafka",
                     python_callable = send_to_kafka,
                     op_kwargs = {"topic": "changes"},
                     dag = dag_changes)
-c2 = PythonOperator(task_id = 'send_changes_to_mongo', 
-                    python_callable = send_to_mongo,
-                    op_kwargs = {"topic": "changes"},
-                    dag = dag_changes)
 
-c1 >> c2 # dependencies
 
 
 # * spark DAG
@@ -55,11 +44,22 @@ c1 >> c2 # dependencies
 from airflow.providers.apache.spark.operators.spark_submit import SparkSubmitOperator
 
 dag_spark = DAG('spark', 
-                  description = '', catchup = False, schedule_interval = timedelta(seconds = 600), default_args = default_args)
+                description = '', catchup = False, schedule_interval = "@once", default_args = default_args)
 
 s1 = SparkSubmitOperator(
     task_id = "spark-job",
-    application = "/opt/airflow/dags/spark_app.py",
+    application = "/opt/airflow/dags/send_to_postgres.py",
     conn_id = "spark_default", # defined under Admin/Connections in Airflow webserver
+    packages = "org.apache.spark:spark-sql-kafka-0-10_2.12:3.1.2,postgresql:postgresql:9.1-901-1.jdbc4",
     dag = dag_spark
 )
+
+
+# * join DAG
+# dag_join = DAG('join_timetable_changes', 
+#                     description = 'Join timetable and changes and load into new database', catchup = False, schedule_interval = "@hourly", default_args = default_args)
+
+# j1 = PythonOperator(task_id = "join_timetable_changes", 
+#                     python_callable = join_timetable_changes,
+#                     # op_kwargs = {"topic": "timetable"},
+#                     dag = dag_join)

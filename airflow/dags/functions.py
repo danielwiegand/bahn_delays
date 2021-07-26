@@ -1,13 +1,14 @@
 import json
 import logging
 import time
-from datetime import timedelta, datetime
+from datetime import datetime, timedelta
 
 import pymongo
 import pytz
 import requests
 import xmltodict
 from kafka import KafkaConsumer, KafkaProducer
+from sqlalchemy import create_engine
 
 HEADERS = {"Authorization": "Bearer c2717c0f768243e30011b8b3104f6d3d",
            "Accept": "application/xml"}
@@ -103,3 +104,29 @@ def send_to_mongo(topic):
             pass
     
     consumer.close() # close consumer if no message for 1 second (consumer_timeout_ms)
+
+
+# * JOIN TIMETABLE AND CHANGES #############################
+
+# def connect_to_database():
+#     #! Noch ändern, wenn in Docker
+#     HOST = 'localhost'
+#     PORT = '5555'
+#     USER = "postgres"
+#     PASSWORD = "postgres"
+#     DB = 'bahn'
+
+#     conn_string = f'postgres://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}' 
+#     conn = create_engine(conn_string, echo = True).connect()
+    
+#     return conn
+
+# conn = connect_to_database()
+# query = """SELECT DISTINCT * FROM timetable LEFT JOIN (SELECT DISTINCT * FROM changes) ON timetable.stop_id = changes.stop_id;"""
+
+# import pandas as pd
+# joined_data = conn.execute(query)
+# joined_data_df = pd.DataFrame(joined_data)
+
+
+# def join_timetable_changes(conn):
