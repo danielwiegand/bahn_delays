@@ -19,7 +19,7 @@ timetable_stream = spark \
   .format("kafka") \
   .option("kafka.bootstrap.servers", "kafka-server:9092") \
   .option("startingOffsets", "latest") \
-  .option("subscribe", "timetable,changes") \
+  .option("subscribe", "timetable") \
   .load()
   
 schema_timetable = StructType(
@@ -39,6 +39,7 @@ schema_timetable = StructType(
 timetable_result = timetable_stream.selectExpr("CAST(value AS STRING)") \
     .withColumn("value", from_json("value", schema_timetable)) \
     .select(col("value.@id").alias("stop_id"), col("value.tl.@c").alias("c"), col("value.tl.@f").alias("f"), col("value.tl.@n").alias("n"), col("value.dp.@pt").alias("pt")) \
+    .withColumn("timestamp", F.current_timestamp()) \
     .distinct()
     
 
@@ -68,8 +69,9 @@ schema_changes = StructType(
 changes_result = changes_stream.selectExpr("CAST(value AS STRING)") \
     .withColumn("value", from_json("value", schema_changes)) \
     .select(col("value.@id").alias("stop_id"), col("value.dp.@ct").alias("ct"), col("value.dp.m.@c").alias("code")) \
+    .withColumn("timestamp", F.current_timestamp()) \
     .distinct()
-    
+
 
 # ds = timetable_result \
 #   .writeStream \
