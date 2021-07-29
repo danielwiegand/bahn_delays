@@ -2,10 +2,9 @@ from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from functions import send_to_kafka, send_to_mongo
+from functions import send_to_kafka, send_to_mongo, join_timetable_changes, delete_old_entries
+import time
 
-
-# * AIRFLOW ################################
 
 # default arguments
 default_args = {
@@ -56,10 +55,26 @@ s1 = SparkSubmitOperator(
 
 
 # * join DAG
-# dag_join = DAG('join_timetable_changes', 
-#                     description = 'Join timetable and changes and load into new database', catchup = False, schedule_interval = "@hourly", default_args = default_args)
 
-# j1 = PythonOperator(task_id = "join_timetable_changes", 
-#                     python_callable = join_timetable_changes,
-#                     # op_kwargs = {"topic": "timetable"},
-#                     dag = dag_join)
+dag_join = DAG('join_timetable_changes', 
+               description = 'Join timetable and changes and load into new database', catchup = False, schedule_interval = "@hourly", default_args = default_args)
+
+j1 = PythonOperator(task_id = "delay_python_task",
+                    dag = dag_join,
+                    python_callable = lambda: time.sleep(300))
+
+j2 = PythonOperator(task_id = "join_timetable_changes", 
+                    python_callable = join_timetable_changes,
+                    dag = dag_join)
+
+j1 >> j2
+
+
+# * empty old database entries DAG
+
+dag_join = DAG('empty_old_entries', 
+               description = 'Empty entries which are older than 24 hours', catchup = False, schedule_interval = "@hourly", default_args = default_args)
+
+e1 = PythonOperator(task_id = "delete_old_entries",
+                    dag = dag_join,
+                    python_callable = delete_old_entries)

@@ -3,12 +3,14 @@ import logging
 import time
 from datetime import datetime, timedelta
 
+import pandas as pd
 import pymongo
 import pytz
 import requests
 import xmltodict
 from kafka import KafkaConsumer, KafkaProducer
 from sqlalchemy import create_engine
+
 
 HEADERS = {"Authorization": "Bearer c2717c0f768243e30011b8b3104f6d3d",
            "Accept": "application/xml"}
@@ -108,25 +110,80 @@ def send_to_mongo(topic):
 
 # * JOIN TIMETABLE AND CHANGES #############################
 
-# def connect_to_database():
-#     #! Noch ändern, wenn in Docker
-#     HOST = 'localhost'
-#     PORT = '5555'
-#     USER = "postgres"
-#     PASSWORD = "postgres"
-#     DB = 'bahn'
+def connect_to_postgres():
+    HOST = "postgres_streams"
+    PORT = 5432
+    USER = "postgres"
+    PASSWORD = "postgres"
+    DB = "bahn"
 
-#     conn_string = f'postgres://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}' 
-#     conn = create_engine(conn_string, echo = True).connect()
+    conn_string = f"postgres://{USER}:{PASSWORD}@{HOST}:{PORT}/{DB}"
+    conn = create_engine(conn_string, echo = True).connect()
     
-#     return conn
+    return conn
 
-# conn = connect_to_database()
-# query = """SELECT DISTINCT * FROM timetable LEFT JOIN (SELECT DISTINCT * FROM changes) ON timetable.stop_id = changes.stop_id;"""
+def fetch_from_postgres(connection, table_name):
+  query = f"SELECT * FROM {table_name};"
+  result = connection.execute(query)
+  df = pd.DataFrame(result, columns = result.keys())
+  return df
 
-# import pandas as pd
-# joined_data = conn.execute(query)
-# joined_data_df = pd.DataFrame(joined_data)
+def convert_to_datetime(column):
+    out = column.str.replace(r"(\w\w)(\w\w)(\w\w)(\w\w\w\w)", r"\1-\2-\3 \4").apply(pd.to_datetime, yearfirst = True)
+    return out
 
+def upsert_into_postgres(connection, df):
+    create_table_query = """CREATE TABLE IF NOT EXISTS delays (
+        stop_id TEXT PRIMARY KEY,
+        c TEXT,
+        f TEXT,
+        n TEXT,
+        pt TIMESTAMP WITHOUT TIME ZONE,
+        ct TIMESTAMP WITHOUT TIME ZONE,
+        code TEXT,
+        timestamp TIMESTAMP WITHOUT TIME ZONE,
+        delay DOUBLE PRECISION
+        );"""
+    connection.execute(create_table_query)
 
-# def join_timetable_changes(conn):
+    df.to_sql(name = "temp_table", con = connection, 
+              if_exists = "replace", index = False)
+
+    colnames = list(df.columns)
+    conflict_subquery = ",".join([f"{col} = EXCLUDED.{col}" for col in colnames])
+    
+    query = f"""INSERT INTO delays (SELECT * FROM temp_table) ON CONFLICT (stop_id) DO UPDATE SET {conflict_subquery};"""
+    connection.execute(query)
+
+def join_timetable_changes():
+    conn = connect_to_postgres()
+    
+    timetable_df = fetch_from_postgres(conn, "timetable")
+    changes_df = fetch_from_postgres(conn, "changes")
+    
+    changes_df = changes_df.dropna(subset = ["ct"]).sort_values(by = "timestamp", ascending = False).groupby("stop_id").head(1)
+    
+    result = pd.merge(timetable_df.drop("timestamp", axis = 1), changes_df, on = "stop_id", how = "left")
+    
+    result["ct"].fillna(result["pt"], inplace = True)
+    
+    result["pt"] = convert_to_datetime(result["pt"])
+    result["ct"] = convert_to_datetime(result["ct"])
+    
+    result["delay"] = ((result["ct"] - result["pt"]).dt.total_seconds() / 60)
+    
+    upsert_into_postgres(conn, result)
+    
+    
+# * EMPTY INTERMEDIARY DATABASES #############################
+
+def delete_old_entries():
+    
+    conn = connect_to_postgres()
+    
+    now = datetime.now(tz = pytz.timezone("Europe/Berlin"))
+    one_day_ago = (now + timedelta(hours = -24)).astimezone(pytz.utc)
+    
+    for table_name in ["timetable", "changes"]:
+        query = f"DELETE FROM {table_name} WHERE timestamp < TIMESTAMP '{one_day_ago}'"
+        conn.execute(query)

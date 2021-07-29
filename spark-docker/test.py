@@ -270,10 +270,10 @@ print(df.printSchema())
 
 # * POSTGRES
 
-#! Timestamp einbauen bei timetable + changes
-
 import pandas as pd
 from sqlalchemy import create_engine
+import re
+
 
 def connect_to_database():
     #! Noch ändern, wenn in Docker
@@ -302,19 +302,63 @@ timetable_df = fetch_from_postgres(conn, "timetable")
 changes_df = fetch_from_postgres(conn, "changes")
 changes_df = changes_df.dropna(subset = ["ct"]).sort_values(by = "timestamp", ascending = False).groupby("stop_id").head(1)
 
-# timetable_df.iloc[:,0].value_counts()
-#! Alte Einträge in der Zwschendatenbank löschen. Wenn das jüngste Datum (aus pt bzw. ct vergangen ist)
-#! Oder: merge mittels upsert in die finale DB einfügen. Und jede Stunde einen DAG machen, der mehr als 24 Stunden alte Einträge aus den Zwischendatenbanken entfernt
+#! Jede Stunde einen DAG machen, der mehr als 24 Stunden alte Einträge aus den Zwischendatenbanken entfernt
 
 # * Left join
 
 result = pd.merge(timetable_df.drop("timestamp", axis = 1), changes_df, on = "stop_id", how = "left")
-result = result.astype({"pt": float, "ct": float})
+# result = result.astype({"pt": float, "ct": float})
 
 result["ct"].fillna(result["pt"], inplace = True) # Bei den, die bei ct NAN stehen haben, soll die entsprechende pt eingetragen werden
-result["delay"] = result["ct"] - result["pt"]
+
+def convert_to_datetime(column):
+    out = column.str.replace(r"(\w\w)(\w\w)(\w\w)(\w\w\w\w)", r"\1-\2-\3 \4").apply(pd.to_datetime, yearfirst = True)
+    return out
+    
+result["pt"] = convert_to_datetime(result["pt"])
+result["ct"] = convert_to_datetime(result["ct"])
+
+result["delay"] = ((result["ct"] - result["pt"]).dt.total_seconds() / 60)
 
 # Upsert in die finale Datenbank
-#! Hier noch upsert machen!
-result.to_sql("delays", conn)
+def upsert_into_postgres(connection, df):
+    create_table_query = """CREATE TABLE IF NOT EXISTS delays (
+        stop_id TEXT PRIMARY KEY,
+        c TEXT,
+        f TEXT,
+        n TEXT,
+        pt TIMESTAMP WITHOUT TIME ZONE,
+        ct TIMESTAMP WITHOUT TIME ZONE,
+        code TEXT,
+        timestamp TIMESTAMP WITHOUT TIME ZONE,
+        delay DOUBLE PRECISION
+        );"""
+    connection.execute(create_table_query)
 
+    df.to_sql(name = "temp_table", con = connection, 
+              if_exists = "replace", index = False)
+
+    colnames = list(df.columns)
+    conflict_subquery = ",".join([f"{col} = EXCLUDED.{col}" for col in colnames])
+    
+    query = f"""INSERT INTO delays (SELECT * FROM temp_table) ON CONFLICT (stop_id) DO UPDATE SET {conflict_subquery};"""
+    connection.execute(query)
+
+upsert_into_postgres(conn, result)
+
+
+
+#* Delete from database
+
+import pymongo
+from datetime import date, datetime, timedelta
+import pytz
+import pandas as pd
+
+def delete_old_entries(connection, table_name):
+    now = datetime.now(tz = pytz.timezone("Europe/Berlin"))
+    one_day_ago = (now + timedelta(hours = -24)).astimezone(pytz.utc)
+    
+    query = f"DELETE FROM {table_name} WHERE timestamp < TIMESTAMP '{one_day_ago}'"
+    
+    connection.execute(query)
