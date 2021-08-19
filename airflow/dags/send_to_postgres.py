@@ -73,7 +73,7 @@ changes_result = changes_stream.selectExpr("CAST(value AS STRING)") \
     .distinct()
 
 
-# ds = timetable_result \
+# ds = changes_result \
 #   .writeStream \
 #   .outputMode("append") \
 #   .format("console") \

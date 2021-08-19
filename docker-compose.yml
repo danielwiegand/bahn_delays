@@ -15,7 +15,8 @@ x-airflow-common: # wohl die Eigenschaften, die von den Containern geteilt werde
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'false' # DAGS nicht pausieren am Anfang
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false' # keine Beispiele laden
     AIRFLOW__API__AUTH_BACKEND: 'airflow.api.auth.backend.basic_auth'
-    AIRFLOW__CORE__DEFAULT_TIMEZONE: 'Europe/Berlin' # Zeitzone
+    AIRFLOW__CORE__DEFAULT_TIMEZONE: 'Europe/Berlin' # Zeitzone,
+    AIRFLOW_CONN_SPARK_DEFAULT: "spark://airflow:airflow@spark%3A%2F%2Fspark:8080"
   volumes:
     - ./airflow/dags:/opt/airflow/dags
     - ./airflow/logs:/opt/airflow/logs
@@ -179,6 +180,18 @@ services:
       - SPARK_SSL_ENABLED=no
     networks:
       - app-tier
+
+  streamlit:
+    container_name: streamlit
+    build: ./streamlit/
+    volumes: 
+      - ./streamlit/:/app
+    ports: 
+      - 8501:8501
+    networks:
+      - app-tier
+    depends_on: 
+      - postgres_streams
     
 volumes:
   postgres-db-volume:
