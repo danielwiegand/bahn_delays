@@ -1,6 +1,10 @@
 import streamlit as st
 import numpy as np
 import pandas as pd
+import datetime
+import plotly.express as px
+
+
 
 HOST = "postgres_streams"
 PORT = "5432"
@@ -27,73 +31,92 @@ result.drop(["stop_id", "timestamp", "ct"], axis = 1, inplace = True)
 
 result.set_index("pt", inplace = True, drop = False)
 
+result["minute"] = result.index.minute.fillna(0).astype(np.int16)
 result["hour"] = result.index.hour.fillna(0).astype(np.int16)
+result["day"] = result.index.day.fillna(0).astype(np.int16)
 result["weekday"] = result.index.day_name()
 result["month"] = result.index.month_name()
-result["year"] = result.index.year
+result["year"] = result.index.strftime("%Y").astype(str)
 
 # * Define sidebars
 
 st.set_page_config(layout="wide")
 
-journey_type = st.sidebar.multiselect("Filter journey types",
-            pd.unique(result["f"]),
-            default = pd.unique(result["f"]))
+st.sidebar.header("Filter")
 
-filtered_journeys = result[result["f"].isin(journey_type)]
+# Datum
 
-train_type = st.sidebar.multiselect("Filter train types",
-            pd.unique(filtered_journeys["c"]),
-            default = pd.unique(filtered_journeys["c"]))
-
-filtered_all = result[result["f"].isin(journey_type) & result["c"].isin(train_type)]
-
-train_number = st.sidebar.multiselect("Filter train number",
-            pd.unique(filtered_all["n"]))
-
-if train_number:
-    filtered_all = result[result["f"].isin(journey_type) & result["c"].isin(train_type) & result["n"].isin(train_number)]
-else:
-    filtered_all = result[result["f"].isin(journey_type) & result["c"].isin(train_type)]
-
-
-import datetime
 today = datetime.date.today()
 
 date_from = st.sidebar.date_input("Start date", result.index.min())
 date_to = st.sidebar.date_input("End date", today)
 
+filtered_days = result.loc[date_from.strftime("%Y-%m-%d"):date_to.strftime("%Y-%m-%d")]
+
+# Journey type
+# "f": "string", # filter flags. Siehe 1.2.26. D = external, F = long distance, N = regional, S = SBahn
+
+# journey_type = st.sidebar.multiselect("Filter journey types",
+#             pd.unique(result["f"]),
+#             default = pd.unique(result["f"]))
+
+# filtered_journeys = filtered_days[filtered_days["f"].isin(journey_type)]
+
+
+# Train type
+train_type = st.sidebar.multiselect("Filter train types",
+            pd.unique(filtered_days["c"]),
+            default = pd.unique(filtered_days["c"]))
+
+filtered_type = filtered_days[filtered_days["c"].isin(train_type)]
+
+# Train number
+train_number = st.sidebar.multiselect("Filter train number",
+            pd.unique(filtered_type["n"]))
+
+if train_number:
+    filtered_all = filtered_type[filtered_type["n"].isin(train_number)]
+else:
+    filtered_all = filtered_type
+
+
 # * Main page
 
-st.title('My first app')
+st.title("Verspätungsmonitor München-Pasing")
 
 col1, col2 = st.columns(2)
 
-import plotly.express as px
-import plotly.figure_factory as ff
+plot_labels = {"delay": "delay (minutes)"}
 
-plot_alldays = px.histogram(filtered_all, x = "delay", hover_data = filtered_all.columns)
+plot_alldays = px.histogram(filtered_all, x = "delay", hover_data = filtered_all.columns, title = "Verspätungen aller Züge", labels = plot_labels)
 col1.plotly_chart(plot_alldays)
 
-plot_hours = px.violin(filtered_all, y = "delay", x = "hour", points = "outliers", hover_data = filtered_all.columns)
+plot_hours = px.violin(filtered_all, y = "delay", x = "hour", points = "outliers", hover_data = filtered_all.columns, color = "hour", title = "Verspätungen je nach Stunde", labels = plot_labels)
 col2.plotly_chart(plot_hours)
 
-plot_weekdays = px.violin(filtered_all, y = "delay", x = "weekday", points = "outliers", hover_data = filtered_all.columns, box = True)
+plot_weekdays = px.violin(filtered_all, y = "delay", x = "weekday", points = "outliers", hover_data = filtered_all.columns, box = True, color = "weekday", title = "Verspätung je nach Wochentag", labels = plot_labels)
 col1.plotly_chart(plot_weekdays)
 
-plot_months = px.violin(filtered_all, y = "delay", x = "month", points = "outliers", hover_data = filtered_all.columns, box = True)
+plot_months = px.violin(filtered_all, y = "delay", x = "month", points = "outliers", hover_data = filtered_all.columns, box = True, color = "month", title = "Verspätung je nach Monat", labels = plot_labels)
 col2.plotly_chart(plot_months)
 
-plot_years = px.violin(filtered_all, y = "delay", x = "year", points = "outliers", hover_data = filtered_all.columns, box = True)
+plot_years = px.violin(filtered_all, y = "delay", x = "year", points = "outliers", hover_data = filtered_all.columns, box = True, color = "year", title = "Verspätung je nach Jahr", labels = plot_labels)
 col1.plotly_chart(plot_years)
 
+col2.write("")
+col2.write("")
+col2.markdown("Alle Daten")
 
-filtered_all
+col2.write("")
 
+col2.dataframe(filtered_all.reset_index(drop = True)[["c", "n", "weekday", "day", "month", "year", "hour", "minute", "delay"]])
 
-#! Zeit filter ermöglichen
 
 #! Verspätunsgcodes reparieren
+
+#! Alternative ausprobieren: Heatmaps mit %
+
+#! Prüfen, ob alle Züge + Verspätungen richtig erfasst werden
 
 
 # * CSS styles
