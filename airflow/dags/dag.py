@@ -64,7 +64,7 @@ dag_join = DAG('join_timetable_changes',
 
 j1 = PythonOperator(task_id = "delay_python_task",
                     dag = dag_join,
-                    python_callable = lambda: time.sleep(300))
+                    python_callable = lambda: time.sleep(120))
 
 j2 = PythonOperator(task_id = "join_timetable_and_changes", 
                     python_callable = join_timetable_changes,

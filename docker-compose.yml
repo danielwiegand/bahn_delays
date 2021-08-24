@@ -1,7 +1,7 @@
-version: '3' # Template-Version für docker-compose.yml
+version: '3'
 
 
-x-airflow-common: # wohl die Eigenschaften, die von den Containern geteilt werden, die ein "<<: *airflow-common" haben
+x-airflow-common: 
   &airflow-common
   build: ./airflow/
   image: ${AIRFLOW_IMAGE_NAME:-apache/airflow:2.0.2}
@@ -130,7 +130,7 @@ services:
     ports: 
       - 5555:5432
     environment:
-      - POSTGRES_USER=postgres
+      - POSTGRES_USER=postgres # CHANGE THIS TO ENVIRONMENT VARIABLES IN A PRODUCTION ENVIRONMENT!
       - POSTGRES_DB=bahn
       - POSTGRES_PASSWORD=postgres
       # - POSTGRES_USER=${POSTGRES_USER}
@@ -202,4 +202,4 @@ volumes:
 networks:
   app-tier:
     driver: bridge
-    name: app-tier # sonst hängt docker hier automatisch den Ordnernamen vorne dran
+    name: app-tier
