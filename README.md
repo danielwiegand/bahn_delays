@@ -6,7 +6,6 @@ A website to visualize train delays (under development)
 ) ![made-with-python](https://img.shields.io/badge/Made%20with-Python-1f425f.svg) ![Website](https://img.shields.io/badge/Website-down-red.svg)
 ![MIT license](https://img.shields.io/badge/License-MIT-blue.svg)
 
-
 ## Goal
 
 Making use of the Deutsche Bahn's API for timetable and timetable changes (https://developer.deutschebahn.com/store/apis/info?name=Timetables&version=v1&provider=DBOpenData&#/), this app collects and displays delay data of trains departing from a specific train station.
@@ -14,6 +13,8 @@ Making use of the Deutsche Bahn's API for timetable and timetable changes (https
 ## Tools used
 
 ![kafka](https://img.shields.io/badge/kafka-black.svg?&style=for-the-badge&logo=apache%20kafka) ![docker](https://img.shields.io/badge/docker-blue.svg?&style=for-the-badge&logo=docker&logoColor=white) ![spark](https://img.shields.io/badge/spark-orange.svg?&style=for-the-badge&logo=apache%20spark&logoColor=white) ![airflow](https://img.shields.io/badge/airflow-lightblue.svg?&style=for-the-badge&logo=apache%20airflow&logoColor=white) ![streamlit](https://img.shields.io/badge/streamlit-red.svg?&style=for-the-badge&logo=streamlit&logoColor=white)
+
+![structure](https://github.com/danielwiegand/bahn_delays/blob/main/structure.svg?raw=true)
 
 
 * Docker-compose to orchestrate the Docker containers needed
