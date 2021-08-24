@@ -10,9 +10,9 @@ from functions import (delete_old_entries, join_timetable_changes,
 
 # default arguments
 default_args = {
-    'owner': 'daniel',
+    'owner': 'dw',
     'start_date': datetime(2021, 5, 9),
-    'email': ['an0nymus@posteo.de'],
+    'email': [''],
     'email_on_failure': False,
     'email_on_retry': False,
     "retries": 3,

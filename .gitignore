@@ -2,4 +2,4 @@ doc
 __pycache__
 logs
 alt
-*.env
+.env
