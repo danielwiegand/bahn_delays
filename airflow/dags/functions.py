@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import time
 from datetime import datetime, timedelta
 
@@ -8,11 +9,13 @@ import pymongo
 import pytz
 import requests
 import xmltodict
+from dotenv import load_dotenv
 from kafka import KafkaConsumer, KafkaProducer
 from sqlalchemy import create_engine
 
+load_dotenv() # load env variables from .env
 
-HEADERS = {"Authorization": "Bearer c2717c0f768243e30011b8b3104f6d3d",
+HEADERS = {"Authorization": f"Bearer {os.getenv('BEARER')}",
            "Accept": "application/xml"}
 
 now = datetime.now(tz = pytz.timezone("Europe/Berlin"))
@@ -154,6 +157,7 @@ def upsert_into_postgres(connection, df):
     
     query = f"""INSERT INTO delays (SELECT * FROM temp_table) ON CONFLICT (stop_id) DO UPDATE SET {conflict_subquery};"""
     connection.execute(query)
+
 
 def join_timetable_changes():
     conn = connect_to_postgres()

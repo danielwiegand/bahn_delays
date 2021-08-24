@@ -8,7 +8,7 @@ import plotly.express as px
 
 HOST = "postgres_streams"
 PORT = "5432"
-USER = "postgres"
+USER = "postgres" #! DO NOT DO THIS IN A PRODUCTION ENVIRONMENT!
 PASSWORD = "postgres"
 DB = "bahn"
 
@@ -110,18 +110,6 @@ col2.markdown("Alle Daten")
 col2.write("")
 
 col2.dataframe(filtered_all.reset_index(drop = True)[["c", "n", "weekday", "day", "month", "year", "hour", "minute", "delay"]])
-
-#! Code sicherer machen für Veröffentlichung
-
-#! Verspätunsgcodes reparieren
-
-#! Alternative ausprobieren: Heatmaps mit %
-
-#! Prüfen, ob alle Züge + Verspätungen richtig erfasst werden
-
-#! Airflow-Logs müssen periodisch gelöscht werden, sonst nehmen sie wirklich viel Speicherplatz weg
-
-#! Wenn man den join-dag manuell auslöst, dann geht gar nichts mehr richtig
 
 
 # * CSS styles
