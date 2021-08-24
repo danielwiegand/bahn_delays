@@ -26,8 +26,15 @@ Making use of the Deutsche Bahn's API for timetable and timetable changes (https
 ## How to use
 
 1. Clone this repository and install docker-compose
-2. Use `docker-compose up -d` to start the pipeline
-3. Go to `localhost:8501` to see collected data over time
+2. Get a token from Deutsche Bahn to use its API (see https://developer.deutschebahn.com/store/apis/info?name=Timetables&version=v1&provider=DBOpenData&#/)
+3. Create a file `.env`in the main project folder with the following content:
+
+```
+AIRFLOW_CONN_SPARK_DEFAULT=spark://airflow:airflow@spark%3A%2F%2Fspark:8080
+BEARER=<your_deutsche_bahn_token>
+```
+4. Use `docker-compose up -d` to start the pipeline
+5. Go to `localhost:8501` to see collected data over time
 
 Currently, data are collected for the München-Pasing train station. To change this, change the `eva` variable in `functions.py`. The eva (ID) of every other station from Deutsche Bahn can be fetched by means of the `get /station/{pattern}` API (see https://developer.deutschebahn.com/store/apis/info?name=Timetables&version=v1&provider=DBOpenData&#!/default/get_station_pattern).
 
