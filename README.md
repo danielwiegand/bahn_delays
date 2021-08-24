@@ -14,7 +14,7 @@ Making use of the Deutsche Bahn's API for timetable and timetable changes (https
 
 ![kafka](https://img.shields.io/badge/kafka-black.svg?&style=for-the-badge&logo=apache%20kafka) ![docker](https://img.shields.io/badge/docker-blue.svg?&style=for-the-badge&logo=docker&logoColor=white) ![spark](https://img.shields.io/badge/spark-orange.svg?&style=for-the-badge&logo=apache%20spark&logoColor=white) ![airflow](https://img.shields.io/badge/airflow-lightblue.svg?&style=for-the-badge&logo=apache%20airflow&logoColor=white) ![streamlit](https://img.shields.io/badge/streamlit-red.svg?&style=for-the-badge&logo=streamlit&logoColor=white)
 
-![structure](https://github.com/danielwiegand/bahn_delays/blob/main/structure.svg?raw=true)
+![structure](https://github.com/danielwiegand/bahn_delays/blob/main/structure.png?raw=true)
 
 
 * Docker-compose to orchestrate the Docker containers needed
